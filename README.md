@@ -1,298 +1,200 @@
-# CMPE131 - Software Engineering Project
+# Aether Evo — Gamified Typing Test Platform
 
-A collaborative software engineering project designed to deliver innovative solutions through agile development practices. This repository showcases modern web development, teamwork, and best practices in building scalable applications.
+A minimal full-stack web application for gamified typing tests, built with Next.js 14, TypeScript, Prisma, and PostgreSQL.
 
-## Description
+![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?logo=tailwind-css&logoColor=white)
 
-This project serves as a comprehensive demonstration of software engineering principles applied in a real-world development environment. Built by a dedicated team of developers, it emphasizes clean code, robust architecture, and user-centric design.
+## Features
 
-## Key Features
-
-- **Collaborative Development**: Built with multiple contributors using Git workflows and code reviews
-- **Agile Methodology**: Implements iterative development with regular sprints and continuous integration
-- **Scalable Architecture**: Designed with modularity and extensibility in mind
-- **Modern Tech Stack**: Utilizes cutting-edge frameworks and tools for optimal performance
-- **Comprehensive Testing**: Includes unit, integration, and end-to-end tests
-- **Documentation**: Well-documented codebase with inline comments and user guides
-- **User-Friendly Interface**: Intuitive design focused on user experience
-- **Security First**: Implements industry-standard security practices
+- **Typing Test UI**: Real-time WPM, accuracy, error count, and timer countdown
+- **Mode Selection**: 30-second and 60-second test modes
+- **Difficulty Levels**: Easy, medium, and hard — auto-adjusting based on performance
+- **Guest Mode**: No sign-up required, just start typing
+- **Leaderboard**: Top 10 scores displayed below results
+- **Prompt System**: Curated prompts per difficulty level with fallback support
+- **Full-Stack API**: RESTful routes for prompts, submissions, and leaderboard
+- **Database Storage**: All test sessions stored in PostgreSQL via Prisma
 
 ## Tech Stack
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue?logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-2.0+-green?logo=flask&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-yellow?logo=javascript&logoColor=white)
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-Database-003B57?logo=sqlite&logoColor=white)
-![Git](https://img.shields.io/badge/Git-Version_Control-F05032?logo=git&logoColor=white)
-
-### Core Technologies
-
-- **Backend**: Python, Flask
-- **Frontend**: HTML5, CSS3, JavaScript
-- **Database**: SQLite
-- **Version Control**: Git & GitHub
-- **Testing**: pytest, unittest
-- **Deployment**: Docker (optional)
-
-## Installation Guide
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-- Python 3.9 or higher
-- pip (Python package manager)
-- Git
-- Virtual environment tool (recommended)
-
-### Step 1: Clone the Repository
-
-```bash
-# Clone the repository
-git clone https://github.com/AbhayRathi/CMPE131.git
-
-# Navigate to the project directory
-cd CMPE131
-```
-
-### Step 2: Set Up Virtual Environment
-
-```bash
-# Create a virtual environment
-python -m venv venv
-
-# Activate the virtual environment
-# On Windows:
-venv\Scripts\activate
-
-# On macOS/Linux:
-source venv/bin/activate
-```
-
-### Step 3: Install Dependencies
-
-```bash
-# Install required packages
-pip install -r requirements.txt
-```
-
-### Step 4: Configure Environment Variables
-
-```bash
-# Create a .env file in the root directory
-cp .env.example .env
-
-# Edit the .env file with your configuration
-# Add necessary API keys and database configurations
-```
-
-### Step 5: Initialize the Database
-
-```bash
-# Run database migrations
-python manage.py db init
-python manage.py db migrate
-python manage.py db upgrade
-```
-
-### Step 6: Run the Application
-
-```bash
-# Start the development server
-python app.py
-
-# Or using Flask CLI
-flask run
-```
-
-The application should now be running at `http://localhost:5000`
-
-## Usage Examples
-
-### Basic Application Flow
-
-1. **Access the Application**
-   ```bash
-   # Navigate to the application in your browser
-   http://localhost:5000
-   ```
-
-2. **User Registration**
-   - Click on "Sign Up" to create a new account
-   - Fill in the required information
-   - Verify your email address
-
-3. **Login**
-   ```bash
-   # Use your credentials to log in
-   # Navigate to: http://localhost:5000/login
-   ```
-
-4. **Main Features**
-   - Explore the dashboard after logging in
-   - Access various modules from the navigation menu
-   - Customize your profile settings
-
-### API Usage (if applicable)
-
-```bash
-# Example API endpoint
-curl -X GET http://localhost:5000/api/users
-
-# POST request example
-curl -X POST http://localhost:5000/api/data \
-  -H "Content-Type: application/json" \
-  -d '{"key": "value"}'
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_example.py
-
-# Run with coverage
-pytest --cov=app tests/
-```
+- **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS
+- **Backend**: Next.js API Routes (TypeScript)
+- **Database**: PostgreSQL with Prisma ORM
+- **Testing**: Jest with ts-jest
 
 ## Project Structure
 
 ```
-CMPE131/
 ├── app/
-│   ├── __init__.py
-│   ├── models/
-│   ├── routes/
-│   ├── templates/
-│   └── static/
-├── tests/
-│   ├── __init__.py
-│   └── test_*.py
-├── config.py
-├── requirements.txt
-├── README.md
-└── app.py
+│   ├── page.tsx                  # Single-page typing test UI
+│   ├── layout.tsx                # Root layout
+│   ├── globals.css               # Global styles
+│   └── api/
+│       ├── prompt/route.ts       # GET /api/prompt
+│       ├── submit/route.ts       # POST /api/submit
+│       └── leaderboard/route.ts  # GET /api/leaderboard
+├── lib/
+│   ├── prompts.ts                # Prompt library with difficulty levels
+│   ├── scoring.ts                # WPM, accuracy, score calculations
+│   └── db.ts                     # Prisma client singleton
+├── prisma/
+│   └── schema.prisma             # Database schema (User, TestSession)
+├── __tests__/
+│   ├── scoring.test.ts           # Scoring logic tests (41 tests)
+│   └── prompts.test.ts           # Prompt system tests (9 tests)
+├── jest.config.js                # Jest configuration
+├── .env.example                  # Environment variable template
+└── package.json
 ```
+
+## Setup Instructions
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- PostgreSQL database
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/AbhayRathi/CMPE131.git
+cd CMPE131
+npm install
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your PostgreSQL connection string:
+
+```
+DATABASE_URL="postgresql://user:password@localhost:5432/aether_evo?schema=public"
+```
+
+### 3. Set Up Database
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Run database migrations
+npx prisma migrate dev --name init
+```
+
+### 4. Run Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 5. Run Tests
+
+```bash
+npm test
+```
+
+## API Routes
+
+### `GET /api/prompt`
+
+Returns a random typing prompt based on difficulty.
+
+**Query Parameters:**
+- `difficulty` (optional): `easy` | `medium` | `hard` (default: `easy`)
+
+**Response:**
+```json
+{
+  "prompt": "The cat sat on the mat...",
+  "difficulty": "easy"
+}
+```
+
+### `POST /api/submit`
+
+Submits typing test results, computes metrics, and stores in the database.
+
+**Request Body:**
+```json
+{
+  "username": "Player1",
+  "prompt": "The cat sat on the mat...",
+  "typedText": "The cat sat on the mat...",
+  "durationSec": 30,
+  "difficulty": "easy"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "session-id",
+  "wpm": 65.5,
+  "accuracy": 0.98,
+  "errorCount": 2,
+  "score": 64,
+  "nextDifficulty": "medium"
+}
+```
+
+### `GET /api/leaderboard`
+
+Returns top 10 test sessions sorted by score.
+
+**Response:**
+```json
+{
+  "leaderboard": [
+    {
+      "id": "...",
+      "username": "Player1",
+      "wpm": 65.5,
+      "accuracy": 0.98,
+      "score": 64,
+      "difficulty": "medium",
+      "durationSec": 30,
+      "createdAt": "2026-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+## Scoring System
+
+- **WPM** = (correctChars / 5) / (durationSec / 60)
+- **Accuracy** = correctChars / totalChars
+- **Score** = round(WPM × Accuracy)
+- **Next Difficulty**:
+  - Low accuracy (<80%) or low WPM (<30) → Easy
+  - Medium accuracy/WPM → Medium
+  - High accuracy (>95%) and high WPM (>60) → Hard
+
+## Database Schema
+
+| Model | Fields |
+|-------|--------|
+| **User** | id, username (unique), createdAt |
+| **TestSession** | id, username, prompt, typedText, durationSec, wpm, accuracy, errorCount, score, difficulty, createdAt |
+
+The leaderboard queries directly from `test_sessions` — no separate table needed.
 
 ## Contributing
 
-We welcome contributions from the community! Here's how you can help:
-
-### Getting Started
-
-1. **Fork the Repository**
-   - Click the "Fork" button at the top right of this page
-   - Clone your forked repository to your local machine
-
-2. **Create a Branch**
-   ```bash
-   # Create a new branch for your feature
-   git checkout -b feature/your-feature-name
-   
-   # Or for bug fixes
-   git checkout -b fix/bug-description
-   ```
-
-3. **Make Your Changes**
-   - Write clean, documented code
-   - Follow the existing code style and conventions
-   - Add tests for new features
-   - Update documentation as needed
-
-4. **Commit Your Changes**
-   ```bash
-   # Stage your changes
-   git add .
-   
-   # Commit with a descriptive message
-   git commit -m "Add: Brief description of your changes"
-   ```
-
-5. **Push to Your Fork**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-6. **Submit a Pull Request**
-   - Go to the original repository on GitHub
-   - Click "New Pull Request"
-   - Select your branch and provide a clear description
-   - Wait for code review and feedback
-
-### Contribution Guidelines
-
-- Follow PEP 8 style guide for Python code
-- Write meaningful commit messages
-- Include tests for new features
-- Update documentation for API changes
-- Be respectful and constructive in discussions
-
-### Code Review Process
-
-- All submissions require review before merging
-- Reviewers will check for code quality, tests, and documentation
-- Address feedback promptly
-- Maintain a positive and collaborative attitude
-
-## Development Roadmap
-
-- [x] Initial project setup
-- [x] Basic application structure
-- [ ] User authentication system
-- [ ] Core feature implementation
-- [ ] Comprehensive testing suite
-- [ ] Documentation completion
-- [ ] Performance optimization
-- [ ] Production deployment
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Make your changes and add tests
+4. Run `npm test` to verify
+5. Submit a pull request
 
 ## License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-### MIT License Summary
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the following conditions:
-
-- The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-- The software is provided "as is", without warranty of any kind.
-
-## Contact Information
-
-### Project Maintainers
-
-- **Repository Owner**: [AbhayRathi](https://github.com/AbhayRathi)
-- **Project Email**: cmpe131.project@example.com *(Please update with actual contact)*
-
-### Support
-
-For questions, issues, or suggestions:
-
-- **GitHub Issues**: [Create an issue](https://github.com/AbhayRathi/CMPE131/issues)
-- **Discussions**: [Join the conversation](https://github.com/AbhayRathi/CMPE131/discussions)
-- **Email**: cmpe131.project@example.com *(Please update with actual contact)*
-
-### Connect With Us
-
-- Follow us on GitHub for updates
-- Star this repository if you find it useful
-- Share feedback to help us improve
-
----
-
-## Acknowledgments
-
-Special thanks to all contributors who have helped make this project possible. Your dedication and expertise are greatly appreciated!
-
-### Contributors
-
-See the [CONTRIBUTORS.md](CONTRIBUTORS.md) file for a list of people who have contributed to this project.
-
----
-
-**Last Updated**: January 2026
-
-*Built with ❤️ by the CMPE131 Team*
+This project is licensed under the **MIT License**.
