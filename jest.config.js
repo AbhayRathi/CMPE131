@@ -14,4 +14,18 @@ module.exports = {
       },
     ],
   },
+  collectCoverageFrom: [
+    "lib/**/*.{ts,tsx}",
+    "app/**/*.{ts,tsx}",
+    "!app/**/*.test.{ts,tsx}",
+    "!**/*.d.ts",
+  ],
+  coverageThreshold: {
+    global: {
+      lines: 70,
+      functions: 70,
+      branches: 70,
+      statements: 70,
+    },
+  },
 };
