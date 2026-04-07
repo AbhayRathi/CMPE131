@@ -1,8 +1,8 @@
 # Aether Evo — Gamified Typing Test Platform
 
-A minimal full-stack web application for gamified typing tests, built with Next.js 14, TypeScript, Prisma, and PostgreSQL.
+A minimal full-stack web application for gamified typing tests, built with Next.js 15, TypeScript, Prisma, and PostgreSQL.
 
-![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?logo=prisma&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql&logoColor=white)
@@ -21,7 +21,7 @@ A minimal full-stack web application for gamified typing tests, built with Next.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 (App Router), React 18, Tailwind CSS
+- **Frontend**: Next.js 15 (App Router), React 18, Tailwind CSS
 - **Backend**: Next.js API Routes (TypeScript)
 - **Database**: PostgreSQL with Prisma ORM
 - **Testing**: Jest with ts-jest

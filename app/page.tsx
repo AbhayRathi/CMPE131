@@ -435,7 +435,7 @@ export default function Home() {
                   {leaderboard.map((entry, i) => (
                     <tr
                       key={entry.id}
-                      className="border-t border-gray-700 hover:bg-gray-750"
+                      className="border-t border-gray-700 hover:bg-gray-700/50"
                     >
                       <td className="px-4 py-2">{i + 1}</td>
                       <td className="px-4 py-2 font-medium">{entry.username}</td>
