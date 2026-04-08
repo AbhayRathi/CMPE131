@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npx prisma generate && npx prisma migrate deploy && npm run build",
+  "installCommand": "npm ci",
+  "framework": "nextjs",
+  "regions": ["sfo1"]
+}

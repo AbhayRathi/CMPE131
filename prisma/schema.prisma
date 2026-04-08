@@ -1,0 +1,41 @@
+// Prisma schema for Aether Evo typing test platform
+// Uses PostgreSQL as the database provider
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Represents a user (guest or authenticated)
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sessions TestSession[]
+
+  @@map("users")
+}
+
+/// Stores each typing test session and its results
+model TestSession {
+  id          String   @id @default(cuid())
+  username    String
+  prompt      String
+  typedText   String   @map("typed_text")
+  durationSec Int      @map("duration_sec")
+  wpm         Float
+  accuracy    Float
+  errorCount  Int      @map("error_count")
+  score       Int
+  difficulty  String   @default("easy")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [username], references: [username])
+
+  @@map("test_sessions")
+}
