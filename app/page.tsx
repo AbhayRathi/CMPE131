@@ -625,7 +625,8 @@ export default function Home() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                     {[
                       { value: Math.round(result.wpm),                       label: "WPM",      color: "var(--accent2)" },
-                      { value: `${(result.accuracy * 100).toFixed(1)}%` /* result.accuracy is 0–1 from API; multiply by 100 for display */,     label: "Accuracy", color: "var(--correct)" },
+                      // result.accuracy is 0–1 from API; multiply by 100 for display
+                      { value: `${(result.accuracy * 100).toFixed(1)}%`,     label: "Accuracy", color: "var(--correct)" },
                       { value: result.errorCount,                            label: "Errors",   color: "var(--error)"   },
                       { value: result.score,                                 label: "Score",    color: "var(--accent)"  },
                     ].map(({ value, label, color }) => (
