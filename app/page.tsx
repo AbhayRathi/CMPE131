@@ -279,7 +279,7 @@ export default function Home() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            username:    username || GUEST_USERNAME,
+            username:    username.trim() || GUEST_USERNAME,
             prompt,
             typedText:   currentTyped,
             durationSec: effectiveDuration,
