@@ -18,6 +18,7 @@ interface TradingPanelProps {
 }
 
 const LS_GUEST_PORTFOLIO = "aether-portfolio";
+const GUEST_USERNAME = "Guest";
 
 interface GuestPortfolio {
   balance: number;
@@ -37,7 +38,7 @@ function saveGuestPortfolio(gp: GuestPortfolio) {
 }
 
 export default function TradingPanel({ username, onBack }: TradingPanelProps) {
-  const isGuest = username === "Guest" || username === "";
+  const isGuest = username === GUEST_USERNAME || username === "";
 
   const [holdings, setHoldings]         = useState<Holding[]>([]);
   const [prices, setPrices]             = useState<Record<string, number>>({});
@@ -51,7 +52,7 @@ export default function TradingPanel({ username, onBack }: TradingPanelProps) {
     try {
       if (isGuest) {
         // Fetch live prices from portfolio API (guest still uses server prices)
-        const res = await fetch(`/api/portfolio?username=Guest`);
+        const res = await fetch(`/api/portfolio?username=${GUEST_USERNAME}`);
         const data = await res.json();
         const livePrices: Record<string, number> = data.prices ?? {};
         setPrices(livePrices);

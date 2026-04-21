@@ -61,6 +61,18 @@ const DIFFICULTY_COLORS: Record<Difficulty, string> = {
 const LS_THEME   = "aether-theme";
 const LS_HISTORY = "aether-prompt-history";
 const LS_SOUND   = "aether-sound";
+const LS_GUEST_WALLET = "aether-wallet";
+const GUEST_USERNAME  = "Guest";
+
+// Challenge mode animation parameters
+const CHALLENGE_ANIM = {
+  xAmp1: 120, xFreq1: 0.7,
+  xAmp2: 40,  xFreq2: 0.4,
+  yAmp1: 80,  yFreq1: 0.5,
+  yAmp2: 30,  yFreq2: 0.9,
+  fontFreq: 1.2, fontMin: 14, fontRange: 6, // oscillates fontMin to fontMin+fontRange
+  defaultFontSize: 16,
+} as const;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -247,7 +259,7 @@ export default function Home() {
 
   // ── Submit results ────────────────────────────────────────────────────────
   const submitResults = useCallback(
-    async (actualDuration?: number, kind: CompletionType = "timer", currentChallengeMode?: ChallengeMode) => {
+    async (actualDuration?: number, kind: CompletionType = "timer") => {
       // Guard: submittedRef prevents double-submission (avoids stale isSubmitting closure)
       if (submittedRef.current) return;
       submittedRef.current = true;
@@ -259,7 +271,6 @@ export default function Home() {
       const effectiveDuration = actualDuration ?? duration;
       // Use the ref to get the very latest typed text (avoids stale closure)
       const currentTyped = typedTextRef.current || " ";
-      const effectiveChallengeMode = currentChallengeMode ?? challengeMode;
 
       let sessionId: string | undefined;
 
@@ -268,7 +279,7 @@ export default function Home() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            username:    username || "Guest",
+            username:    username || GUEST_USERNAME,
             prompt,
             typedText:   currentTyped,
             durationSec: effectiveDuration,
@@ -282,9 +293,9 @@ export default function Home() {
           if (kind === "early") playCompletionSound();
           sessionId = data.id;
 
-          // Award credits via wallet API (skip for "Guest" — handled client-side)
-          const effectiveUsername = (username || "Guest").trim();
-          if (effectiveUsername !== "Guest") {
+          // Award credits via wallet API (skip for guest — handled client-side)
+          const effectiveUsername = (username || GUEST_USERNAME).trim();
+          if (effectiveUsername !== GUEST_USERNAME) {
             try {
               // Determine leaderboard rank after fetching updated leaderboard
               const lbRes = await fetch("/api/leaderboard");
@@ -301,7 +312,7 @@ export default function Home() {
                   accuracy:       data.accuracy,
                   score:          data.score,
                   rank:           rank || null,
-                  challengeMode:  effectiveChallengeMode,
+                  challengeMode:  challengeMode,
                   sessionId,
                 }),
               });
@@ -311,7 +322,6 @@ export default function Home() {
           } else {
             // Guest: award credits via localStorage
             try {
-              const LS_GUEST_WALLET = "aether-wallet";
               interface GuestWallet { balance: number; transactions: Array<{ amount: number; reason: string; date: string }> }
               const raw = localStorage.getItem(LS_GUEST_WALLET);
               const gw: GuestWallet = raw ? JSON.parse(raw) : { balance: 0, transactions: [] };
@@ -375,14 +385,14 @@ export default function Home() {
       const t = (ts - startTs) / 1000; // seconds
 
       const x = challengeMode === "move" || challengeMode === "both"
-        ? Math.sin(t * 0.7) * 120 + Math.cos(t * 0.4) * 40
+        ? Math.sin(t * CHALLENGE_ANIM.xFreq1) * CHALLENGE_ANIM.xAmp1 + Math.cos(t * CHALLENGE_ANIM.xFreq2) * CHALLENGE_ANIM.xAmp2
         : 0;
       const y = challengeMode === "move" || challengeMode === "both"
-        ? Math.cos(t * 0.5) * 80 + Math.sin(t * 0.9) * 30
+        ? Math.cos(t * CHALLENGE_ANIM.yFreq1) * CHALLENGE_ANIM.yAmp1 + Math.sin(t * CHALLENGE_ANIM.yFreq2) * CHALLENGE_ANIM.yAmp2
         : 0;
       const fontSize = challengeMode === "resize" || challengeMode === "both"
-        ? 14 + (Math.sin(t * 1.2) + 1) * 3 // oscillates 14–20px
-        : 16;
+        ? CHALLENGE_ANIM.fontMin + (Math.sin(t * CHALLENGE_ANIM.fontFreq) + 1) * (CHALLENGE_ANIM.fontRange / 2)
+        : CHALLENGE_ANIM.defaultFontSize;
 
       setChallengeOffset({ x, y, fontSize });
       challengeAnimRef.current = requestAnimationFrame(animate);
