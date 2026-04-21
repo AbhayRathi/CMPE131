@@ -79,6 +79,7 @@ export default function Home() {
   const [result,       setResult]       = useState<TestResult | null>(null);
   const [leaderboard,  setLeaderboard]  = useState<LeaderboardEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isStarting,   setIsStarting]   = useState(false);
 
   // History state
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
@@ -97,7 +98,15 @@ export default function Home() {
       const t = localStorage.getItem(LS_THEME) as Theme | null;
       if (t && THEMES.find((x) => x.id === t)) setTheme(t);
       const h = localStorage.getItem(LS_HISTORY);
-      if (h) setPromptHistory(JSON.parse(h));
+      if (h) {
+        try {
+          const parsed = JSON.parse(h);
+          if (Array.isArray(parsed)) setPromptHistory(parsed);
+        } catch {
+          // corrupted storage — ignore and start fresh
+          localStorage.removeItem(LS_HISTORY);
+        }
+      }
       const s = localStorage.getItem(LS_SOUND);
       if (s !== null) setSoundEnabled(s === "true");
     } catch { /* ignore */ }
@@ -148,6 +157,7 @@ export default function Home() {
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.5);
+      osc.onended = () => ctx.close();
     } catch { /* Web Audio not available */ }
   }, [soundEnabled]);
 
@@ -157,9 +167,13 @@ export default function Home() {
       let selected = "";
       for (let i = 0; i < 4; i++) {
         try {
-          const res  = await fetch(`/api/prompt?difficulty=${diff}`);
+          const res = await fetch(`/api/prompt?difficulty=${diff}`);
+          if (!res.ok) throw new Error(`API error: ${res.status}`);
           const data = await res.json();
-          selected   = data.prompt as string;
+          selected =
+            typeof data.prompt === "string" && data.prompt.length > 0
+              ? data.prompt
+              : "The quick brown fox jumps over the lazy dog.";
         } catch {
           return "The quick brown fox jumps over the lazy dog.";
         }
@@ -174,7 +188,8 @@ export default function Home() {
   // ── Fetch leaderboard ─────────────────────────────────────────────────────
   const fetchLeaderboard = useCallback(async () => {
     try {
-      const res  = await fetch("/api/leaderboard");
+      const res = await fetch("/api/leaderboard");
+      if (!res.ok) throw new Error(`Leaderboard fetch failed: ${res.status}`);
       const data = await res.json();
       setLeaderboard(data.leaderboard || []);
     } catch {
@@ -280,34 +295,44 @@ export default function Home() {
   useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
 
   // ── Start test ────────────────────────────────────────────────────────────
-  const startTest = async () => {
-    const name = username.trim() || "Guest";
-    setUsername(name);
+  const startTest = useCallback(async () => {
+    // Guard against rapid double-clicks while the prompt is being fetched
+    if (isStarting) return;
+    setIsStarting(true);
+    // Clear any stale timer from a previous test
+    if (timerRef.current) clearInterval(timerRef.current);
 
-    const newPrompt = await fetchPrompt(difficulty, promptHistory);
-    setPrompt(newPrompt);
-    setTypedText("");
-    typedTextRef.current = "";
-    submittedRef.current = false;
-    setTimeLeft(duration);
-    setWpm(0);
-    setAccuracy(100);
-    setErrorCount(0);
-    setResult(null);
-    setCompletionType(null);
-    setGameState("playing");
-    startTimeRef.current = Date.now();
+    try {
+      const name = username.trim() || "Guest";
+      setUsername(name);
 
-    setTimeout(() => inputRef.current?.focus(), 100);
+      const newPrompt = await fetchPrompt(difficulty, promptHistory);
+      setPrompt(newPrompt);
+      setTypedText("");
+      typedTextRef.current = "";
+      submittedRef.current = false;
+      setTimeLeft(duration);
+      setWpm(0);
+      setAccuracy(100);
+      setErrorCount(0);
+      setResult(null);
+      setCompletionType(null);
+      setGameState("playing");
+      startTimeRef.current = Date.now();
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) { clearInterval(timer); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-    timerRef.current = timer;
-  };
+      setTimeout(() => inputRef.current?.focus(), 100);
+
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) { clearInterval(timer); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+      timerRef.current = timer;
+    } finally {
+      setIsStarting(false);
+    }
+  }, [isStarting, username, difficulty, promptHistory, duration, fetchPrompt]);
 
   // ── Handle typing input ───────────────────────────────────────────────────
   const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -344,7 +369,7 @@ export default function Home() {
       const isCursor = i === typedText.length;
       return (
         <span
-          key={i}
+          key={`${char}-${i}`}
           className={cls}
           style={isCursor ? { backgroundColor: "var(--cursor-bg)", borderRadius: "2px" } : undefined}
         >
@@ -424,7 +449,7 @@ export default function Home() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && startTest()}
+                onKeyDown={(e) => e.key === "Enter" && !isStarting && startTest()}
                 placeholder="Guest"
                 maxLength={50}
                 className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none transition-colors"
@@ -488,10 +513,11 @@ export default function Home() {
             {/* Start button */}
             <button
               onClick={startTest}
-              className="w-full py-3 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              disabled={isStarting}
+              className="w-full py-3 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ background: "var(--accent-gradient)", boxShadow: "var(--shadow)" }}
             >
-              Start Typing Test
+              {isStarting ? "Loading…" : "Start Typing Test"}
             </button>
           </div>
         )}
@@ -748,7 +774,7 @@ export default function Home() {
                 <>
                   {promptHistory.map((p, i) => (
                     <div
-                      key={i}
+                      key={p}
                       className="rounded-xl px-4 py-3 text-xs leading-relaxed font-[family-name:var(--font-geist-mono)]"
                       style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
                     >
