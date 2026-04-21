@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import WalletPanel  from "./components/WalletPanel";
+import TradingPanel from "./components/TradingPanel";
+import ShopPanel    from "./components/ShopPanel";
 
 /**
  * Aether Evo — Gamified Typing Test
  * Single-page UI: theme toggle, username input, mode selection,
  * typing test with early completion, results, leaderboard, prompt history.
+ * Also includes Wallet, Trading, and Shop panels.
  */
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -15,6 +19,8 @@ type Theme = "dark" | "light" | "blue" | "green" | "sunset";
 type Difficulty = "easy" | "medium" | "hard";
 type GameState = "setup" | "playing" | "finished";
 type CompletionType = "timer" | "early" | null;
+type ChallengeMode = "off" | "move" | "resize" | "both";
+type ActivePanel = "typing" | "wallet" | "trading" | "shop";
 
 interface TestResult {
   wpm: number;
@@ -60,12 +66,14 @@ const LS_SOUND   = "aether-sound";
 
 export default function Home() {
   // Setup state
-  const [username,   setUsername]   = useState("");
-  const [duration,   setDuration]   = useState<30 | 60>(30);
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
-  const [gameState,  setGameState]  = useState<GameState>("setup");
-  const [theme,      setTheme]      = useState<Theme>("dark");
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [username,       setUsername]       = useState("");
+  const [duration,       setDuration]       = useState<30 | 60>(30);
+  const [difficulty,     setDifficulty]     = useState<Difficulty>("easy");
+  const [gameState,      setGameState]      = useState<GameState>("setup");
+  const [theme,          setTheme]          = useState<Theme>("dark");
+  const [soundEnabled,   setSoundEnabled]   = useState(false);
+  const [challengeMode,  setChallengeMode]  = useState<ChallengeMode>("off");
+  const [activePanel,    setActivePanel]    = useState<ActivePanel>("typing");
 
   // Game state
   const [prompt,         setPrompt]         = useState("");
@@ -78,21 +86,29 @@ export default function Home() {
   const [completionType, setCompletionType]  = useState<CompletionType>(null);
 
   // Results state
-  const [result,       setResult]       = useState<TestResult | null>(null);
-  const [leaderboard,  setLeaderboard]  = useState<LeaderboardEntry[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isStarting,   setIsStarting]   = useState(false);
+  const [result,        setResult]        = useState<TestResult | null>(null);
+  const [leaderboard,   setLeaderboard]   = useState<LeaderboardEntry[]>([]);
+  const [isSubmitting,  setIsSubmitting]  = useState(false);
+  const [isStarting,    setIsStarting]    = useState(false);
+  const [creditsEarned, setCreditsEarned] = useState<number | null>(null);
 
   // History state
   const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const [showHistory,   setShowHistory]   = useState(false);
 
   // Refs for stable access inside async callbacks
-  const inputRef      = useRef<HTMLTextAreaElement>(null);
-  const timerRef      = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef  = useRef<number>(0);
-  const typedTextRef  = useRef<string>("");
-  const submittedRef  = useRef<boolean>(false); // guard against double-submit
+  const inputRef         = useRef<HTMLTextAreaElement>(null);
+  const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef     = useRef<number>(0);
+  const typedTextRef     = useRef<string>("");
+  const submittedRef     = useRef<boolean>(false); // guard against double-submit
+
+  // Forward-only typing: tracks max characters ever typed so backspace can't erase
+  const lockedLengthRef  = useRef<number>(0);
+
+  // Challenge mode animation
+  const challengeAnimRef = useRef<number | null>(null);
+  const [challengeOffset, setChallengeOffset] = useState({ x: 0, y: 0, fontSize: 16 });
 
   // ── Load persisted preferences on mount ──────────────────────────────────
   useEffect(() => {
@@ -231,7 +247,7 @@ export default function Home() {
 
   // ── Submit results ────────────────────────────────────────────────────────
   const submitResults = useCallback(
-    async (actualDuration?: number, kind: CompletionType = "timer") => {
+    async (actualDuration?: number, kind: CompletionType = "timer", currentChallengeMode?: ChallengeMode) => {
       // Guard: submittedRef prevents double-submission (avoids stale isSubmitting closure)
       if (submittedRef.current) return;
       submittedRef.current = true;
@@ -243,6 +259,9 @@ export default function Home() {
       const effectiveDuration = actualDuration ?? duration;
       // Use the ref to get the very latest typed text (avoids stale closure)
       const currentTyped = typedTextRef.current || " ";
+      const effectiveChallengeMode = currentChallengeMode ?? challengeMode;
+
+      let sessionId: string | undefined;
 
       try {
         const res = await fetch("/api/submit", {
@@ -261,16 +280,61 @@ export default function Home() {
           setResult(data);
           setDifficulty(data.nextDifficulty);
           if (kind === "early") playCompletionSound();
+          sessionId = data.id;
+
+          // Award credits via wallet API (skip for "Guest" — handled client-side)
+          const effectiveUsername = (username || "Guest").trim();
+          if (effectiveUsername !== "Guest") {
+            try {
+              // Determine leaderboard rank after fetching updated leaderboard
+              const lbRes = await fetch("/api/leaderboard");
+              const lbData = await lbRes.json();
+              const lb: LeaderboardEntry[] = lbData.leaderboard ?? [];
+              const rank = lb.findIndex((e) => e.id === sessionId) + 1 || null;
+
+              const awardRes = await fetch("/api/wallet/award", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  username:       effectiveUsername,
+                  wpm:            data.wpm,
+                  accuracy:       data.accuracy,
+                  score:          data.score,
+                  rank:           rank || null,
+                  challengeMode:  effectiveChallengeMode,
+                  sessionId,
+                }),
+              });
+              const awardData = await awardRes.json();
+              if (awardRes.ok) setCreditsEarned(awardData.credits);
+            } catch { /* award is best-effort */ }
+          } else {
+            // Guest: award credits via localStorage
+            try {
+              const LS_GUEST_WALLET = "aether-wallet";
+              interface GuestWallet { balance: number; transactions: Array<{ amount: number; reason: string; date: string }> }
+              const raw = localStorage.getItem(LS_GUEST_WALLET);
+              const gw: GuestWallet = raw ? JSON.parse(raw) : { balance: 0, transactions: [] };
+              // Simple guest reward: max(1, round(score * 0.1))
+              const guestCredits = Math.max(1, Math.round(data.score * 0.1));
+              gw.balance += guestCredits;
+              gw.transactions.unshift({ amount: guestCredits, reason: "Typing test reward", date: new Date().toISOString() });
+              localStorage.setItem(LS_GUEST_WALLET, JSON.stringify(gw));
+              setCreditsEarned(guestCredits);
+            } catch { /* ignore */ }
+          }
         }
       } catch (err) {
         console.error("Failed to submit results:", err);
       } finally {
         setIsSubmitting(false);
+        // Reset locked length after test ends
+        lockedLengthRef.current = 0;
       }
 
       fetchLeaderboard();
     },
-    [username, prompt, duration, difficulty, fetchLeaderboard, playCompletionSound]
+    [username, prompt, duration, difficulty, challengeMode, fetchLeaderboard, playCompletionSound]
   );
 
   // ── Add completed prompt to history when game ends ────────────────────────
@@ -296,6 +360,38 @@ export default function Home() {
   // ── Load leaderboard on mount ─────────────────────────────────────────────
   useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
 
+  // ── Challenge mode animation loop ─────────────────────────────────────────
+  useEffect(() => {
+    if (gameState !== "playing" || challengeMode === "off") {
+      if (challengeAnimRef.current !== null) cancelAnimationFrame(challengeAnimRef.current);
+      challengeAnimRef.current = null;
+      setChallengeOffset({ x: 0, y: 0, fontSize: 16 });
+      return;
+    }
+
+    let startTs: number | null = null;
+    const animate = (ts: number) => {
+      if (!startTs) startTs = ts;
+      const t = (ts - startTs) / 1000; // seconds
+
+      const x = challengeMode === "move" || challengeMode === "both"
+        ? Math.sin(t * 0.7) * 120 + Math.cos(t * 0.4) * 40
+        : 0;
+      const y = challengeMode === "move" || challengeMode === "both"
+        ? Math.cos(t * 0.5) * 80 + Math.sin(t * 0.9) * 30
+        : 0;
+      const fontSize = challengeMode === "resize" || challengeMode === "both"
+        ? 14 + (Math.sin(t * 1.2) + 1) * 3 // oscillates 14–20px
+        : 16;
+
+      setChallengeOffset({ x, y, fontSize });
+      challengeAnimRef.current = requestAnimationFrame(animate);
+    };
+
+    challengeAnimRef.current = requestAnimationFrame(animate);
+    return () => { if (challengeAnimRef.current !== null) cancelAnimationFrame(challengeAnimRef.current); };
+  }, [gameState, challengeMode]);
+
   // ── Start test ────────────────────────────────────────────────────────────
   const startTest = useCallback(async () => {
     // Guard against rapid double-clicks while the prompt is being fetched
@@ -313,6 +409,8 @@ export default function Home() {
       setTypedText("");
       typedTextRef.current = "";
       submittedRef.current = false;
+      lockedLengthRef.current = 0;
+      setCreditsEarned(null);
       setTimeLeft(duration);
       setWpm(0);
       setAccuracy(100);
@@ -336,13 +434,22 @@ export default function Home() {
     }
   }, [isStarting, username, difficulty, promptHistory, duration, fetchPrompt]);
 
-  // ── Handle typing input ───────────────────────────────────────────────────
+  // ── Handle typing input (forward-only) ───────────────────────────────────
   const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (gameState !== "playing") return;
     const value = e.target.value;
 
     // Prevent typing beyond the prompt length
     if (value.length > prompt.length) return;
+
+    // Forward-only: if the new value is shorter than the locked max, restore it
+    if (value.length < lockedLengthRef.current) {
+      e.target.value = typedTextRef.current;
+      return;
+    }
+
+    // Update the locked length to the new maximum
+    lockedLengthRef.current = Math.max(lockedLengthRef.current, value.length);
 
     typedTextRef.current = value;
     setTypedText(value);
@@ -353,6 +460,44 @@ export default function Home() {
       if (timerRef.current) clearInterval(timerRef.current);
       const elapsed = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
       submitResults(elapsed, "early");
+    }
+  };
+
+  // ── Block keys that allow cursor movement or text deletion ────────────────
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (gameState !== "playing") return;
+    const blocked = [
+      "Backspace", "Delete",
+      "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+      "Home", "End",
+    ];
+    if (blocked.includes(e.key)) { e.preventDefault(); return; }
+    // Block Ctrl/Meta shortcuts that reposition or modify text
+    if (e.ctrlKey || e.metaKey) {
+      const blockedShortcuts = ["a", "z", "x", "ArrowLeft", "ArrowRight", "Home", "End"];
+      if (blockedShortcuts.includes(e.key.toLowerCase())) { e.preventDefault(); }
+    }
+  };
+
+  // ── Prevent mouse-based cursor repositioning ──────────────────────────────
+  const handleMouseDown = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    if (gameState !== "playing") return;
+    e.preventDefault();
+    const el = inputRef.current;
+    if (el) {
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    }
+  };
+
+  // ── Prevent text selection during active test ─────────────────────────────
+  const handleSelect = () => {
+    if (gameState !== "playing") return;
+    const el = inputRef.current;
+    if (el) {
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
     }
   };
 
@@ -393,7 +538,7 @@ export default function Home() {
       <div className="max-w-3xl mx-auto px-4 py-8">
 
         {/* ── Top bar: header + theme/sound controls ── */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-3xl font-bold" style={{ background: "var(--accent-gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               Aether Evo
@@ -436,6 +581,55 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* ── Nav tabs ── */}
+        <div
+          className="flex gap-1 mb-6 p-1 rounded-xl"
+          style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
+        >
+          {([
+            { id: "typing",  label: "⌨ Typing"   },
+            { id: "wallet",  label: "💰 Wallet"   },
+            { id: "trading", label: "📈 Trading"  },
+            { id: "shop",    label: "🛍 Shop"     },
+          ] as { id: ActivePanel; label: string }[]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActivePanel(tab.id)}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                background: activePanel === tab.id ? "var(--accent)" : "transparent",
+                color:      activePanel === tab.id ? "#fff" : "var(--text-muted)",
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Wallet / Trading / Shop panels ── */}
+        {activePanel === "wallet" && (
+          <WalletPanel
+            username={username || "Guest"}
+            onBack={() => setActivePanel("typing")}
+            creditGain={creditsEarned ?? undefined}
+          />
+        )}
+        {activePanel === "trading" && (
+          <TradingPanel
+            username={username || "Guest"}
+            onBack={() => setActivePanel("typing")}
+          />
+        )}
+        {activePanel === "shop" && (
+          <ShopPanel
+            username={username || "Guest"}
+            onBack={() => setActivePanel("typing")}
+          />
+        )}
+
+        {/* ── Typing panel ── */}
+        {activePanel === "typing" && (<>
 
         {/* ══════════════════════════════════════════════════════════════════ */}
         {/* Setup screen                                                      */}
@@ -506,6 +700,34 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Challenge Mode */}
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
+                Challenge Mode
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {(["off", "move", "resize", "both"] as ChallengeMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setChallengeMode(m)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold capitalize transition-all"
+                    style={{
+                      background: challengeMode === m ? "var(--accent2)" : "var(--surface)",
+                      color:      challengeMode === m ? "#fff"            : "var(--text-muted)",
+                      border:     challengeMode === m ? "1px solid transparent" : "1px solid var(--border)",
+                    }}
+                  >
+                    {m === "off" ? "Off" : m === "move" ? "🌀 Move" : m === "resize" ? "🔠 Resize" : "⚡ Both"}
+                  </button>
+                ))}
+              </div>
+              {challengeMode !== "off" && (
+                <p className="text-xs mt-1.5 px-1" style={{ color: "var(--error)" }}>
+                  ⚠️ Challenge mode may cause visual discomfort. It earns bonus credits.
+                </p>
+              )}
+            </div>
+
             {/* Completed count */}
             {promptHistory.length > 0 && (
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -557,12 +779,25 @@ export default function Home() {
               />
             </div>
 
-            {/* Prompt display */}
+            {/* Prompt display — wrapped for challenge mode transform */}
             <div
-              className="rounded-xl p-5 font-[family-name:var(--font-geist-mono)] text-base leading-loose select-none"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)", minHeight: "6rem" }}
+              style={challengeMode !== "off" ? {
+                transform: `translate(${challengeOffset.x}px, ${challengeOffset.y}px)`,
+                transition: "transform 0.05s linear",
+                willChange: "transform",
+              } : undefined}
             >
-              {renderPrompt()}
+              <div
+                className="rounded-xl p-5 font-[family-name:var(--font-geist-mono)] leading-loose select-none"
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  minHeight: "6rem",
+                  fontSize: challengeMode !== "off" ? `${challengeOffset.fontSize}px` : "1rem",
+                }}
+              >
+                {renderPrompt()}
+              </div>
             </div>
 
             {/* Typing input */}
@@ -570,6 +805,9 @@ export default function Home() {
               ref={inputRef}
               value={typedText}
               onChange={handleTyping}
+              onKeyDown={handleKeyDown}
+              onMouseDown={handleMouseDown}
+              onSelect={handleSelect}
               disabled={gameState !== "playing"}
               placeholder="Start typing here…"
               className="w-full h-28 px-4 py-3 rounded-xl font-[family-name:var(--font-geist-mono)] text-sm resize-none focus:outline-none transition-colors"
@@ -618,6 +856,15 @@ export default function Home() {
                         <div className="text-4xl mb-2">⏱</div>
                         <h2 className="text-xl font-bold">Time&#39;s Up!</h2>
                       </>
+                    )}
+                    {/* Credits earned badge */}
+                    {creditsEarned !== null && (
+                      <div
+                        className="inline-flex items-center gap-1 mt-3 px-4 py-1.5 rounded-full text-sm font-bold animate-bounce"
+                        style={{ background: "var(--accent)", color: "#fff" }}
+                      >
+                        +{creditsEarned} credits earned!
+                      </div>
                     )}
                   </div>
 
@@ -803,6 +1050,10 @@ export default function Home() {
         <footer className="mt-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>
           Aether Evo &copy; {new Date().getFullYear()} — Built with Next.js + Prisma
         </footer>
+
+        {/* End typing panel */}
+        </>)}
+
       </div>
     </div>
     </ErrorBoundary>
