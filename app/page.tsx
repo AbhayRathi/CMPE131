@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 /**
  * Aether Evo — Gamified Typing Test
@@ -71,6 +72,7 @@ export default function Home() {
   const [typedText,      setTypedText]       = useState("");
   const [timeLeft,       setTimeLeft]        = useState(0);
   const [wpm,            setWpm]             = useState(0);
+  // accuracy: 0–100 (percentage). Note: result.accuracy from /api/submit is 0–1 — multiply by 100 before displaying.
   const [accuracy,       setAccuracy]        = useState(100);
   const [errorCount,     setErrorCount]      = useState(0);
   const [completionType, setCompletionType]  = useState<CompletionType>(null);
@@ -386,6 +388,7 @@ export default function Home() {
   // Render
   // ─────────────────────────────────────────────────────────────────────────
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-geist-sans)]">
       <div className="max-w-3xl mx-auto px-4 py-8">
 
@@ -622,7 +625,7 @@ export default function Home() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                     {[
                       { value: Math.round(result.wpm),                       label: "WPM",      color: "var(--accent2)" },
-                      { value: `${(result.accuracy * 100).toFixed(1)}%`,     label: "Accuracy", color: "var(--correct)" },
+                      { value: `${(result.accuracy * 100).toFixed(1)}%` /* result.accuracy is 0–1 from API; multiply by 100 for display */,     label: "Accuracy", color: "var(--correct)" },
                       { value: result.errorCount,                            label: "Errors",   color: "var(--error)"   },
                       { value: result.score,                                 label: "Score",    color: "var(--accent)"  },
                     ].map(({ value, label, color }) => (
@@ -801,5 +804,6 @@ export default function Home() {
         </footer>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
