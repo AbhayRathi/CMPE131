@@ -79,6 +79,10 @@ const prompts: Record<Difficulty, string[]> = {
  * Returns a random prompt for the given difficulty level, optionally
  * excluding a set of recently-used prompts to reduce repetition.
  * Falls back to the full pool if all prompts are excluded.
+ *
+ * @param difficulty - The difficulty level to select from.
+ * @param excluded   - An array of prompt strings to skip (e.g. recently completed).
+ *                     If all prompts would be excluded, the full pool is used as fallback.
  */
 export function getPrompt(difficulty: Difficulty = "easy", excluded: string[] = []): string {
   const pool = prompts[difficulty] || prompts.easy;

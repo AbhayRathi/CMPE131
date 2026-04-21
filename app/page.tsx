@@ -449,7 +449,7 @@ export default function Home() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !isStarting && startTest()}
+                onKeyDown={(e) => { if (e.key === "Enter" && !isStarting) { e.preventDefault(); startTest(); } }}
                 placeholder="Guest"
                 maxLength={50}
                 className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none transition-colors"
@@ -613,7 +613,7 @@ export default function Home() {
                     ) : (
                       <>
                         <div className="text-4xl mb-2">⏱</div>
-                        <h2 className="text-xl font-bold">Time&apos;s Up!</h2>
+                        <h2 className="text-xl font-bold">Time&#39;s Up!</h2>
                       </>
                     )}
                   </div>
