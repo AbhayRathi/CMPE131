@@ -2,29 +2,17 @@
  * GET /api/shop?username=...
  * Returns all cosmetic items with owned/equipped status for the given user.
  * If username is omitted, all items are returned as unowned.
+ *
+ * Note: The cosmetic catalog is seeded via `npx prisma db seed` (prisma/seed.ts).
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { COSMETIC_CATALOG } from "@/lib/shop";
 
 const MAX_USERNAME_LENGTH = 50;
 
-/** Ensure all catalog items are present in DB (idempotent seed). */
-async function seedCatalog() {
-  for (const item of COSMETIC_CATALOG) {
-    await prisma.cosmeticItem.upsert({
-      where: { name: item.name },
-      update: { category: item.category, description: item.description, price: item.price, data: item.data },
-      create: item,
-    });
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
-    await seedCatalog();
-
     const { searchParams } = new URL(request.url);
     const username = searchParams.get("username");
 

@@ -6,9 +6,9 @@ generator client {
 }
 
 datasource db {
-  //provider = "postgresql"
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 /// Represents a user (guest or authenticated)
@@ -41,6 +41,7 @@ model CreditTransaction {
   username  String
   amount    Int
   reason    String
+  sessionId String?  @unique @map("session_id")
   createdAt DateTime @default(now()) @map("created_at")
   wallet    Wallet   @relation(fields: [username], references: [username])
   @@map("credit_transactions")

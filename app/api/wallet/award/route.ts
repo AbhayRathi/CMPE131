@@ -9,7 +9,6 @@ import { prisma } from "@/lib/db";
 import { calculateReward } from "@/lib/wallet";
 
 const MAX_USERNAME_LENGTH = 50;
-const MAX_SESSION_ID_DISPLAY_LENGTH = 30;
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,6 +42,17 @@ export async function POST(request: NextRequest) {
     }
 
     const sanitizedUsername = username.trim();
+    const sanitizedSessionId = sessionId && typeof sessionId === "string" ? sessionId.trim() : null;
+
+    // --- Guard against double-awarding the same session ---
+    if (sanitizedSessionId) {
+      const existing = await prisma.creditTransaction.findUnique({
+        where: { sessionId: sanitizedSessionId },
+      });
+      if (existing) {
+        return NextResponse.json({ error: "Already awarded for this session." }, { status: 409 });
+      }
+    }
 
     const credits = calculateReward({ wpm, accuracy, score, rank, challengeMode });
 
@@ -60,9 +70,9 @@ export async function POST(request: NextRequest) {
       create: { username: sanitizedUsername, balance: credits },
     });
 
-    // Record transaction
-    const reason = sessionId
-      ? `Typing test reward (session: ${String(sessionId).slice(0, MAX_SESSION_ID_DISPLAY_LENGTH)})`
+    // Record transaction (sessionId stored for idempotency)
+    const reason = sanitizedSessionId
+      ? `Typing test reward (session: ${sanitizedSessionId.slice(0, 30)})`
       : "Typing test reward";
 
     await prisma.creditTransaction.create({
@@ -70,6 +80,7 @@ export async function POST(request: NextRequest) {
         username: sanitizedUsername,
         amount: credits,
         reason,
+        ...(sanitizedSessionId ? { sessionId: sanitizedSessionId } : {}),
       },
     });
 
