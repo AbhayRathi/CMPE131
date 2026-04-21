@@ -215,8 +215,8 @@ export default function Home() {
   // ── Submit results ────────────────────────────────────────────────────────
   const submitResults = useCallback(
     async (actualDuration?: number, kind: CompletionType = "timer") => {
-      // Guard: only submit once per test
-      if (submittedRef.current || isSubmitting) return;
+      // Guard: submittedRef prevents double-submission (avoids stale isSubmitting closure)
+      if (submittedRef.current) return;
       submittedRef.current = true;
 
       setIsSubmitting(true);
@@ -253,8 +253,7 @@ export default function Home() {
 
       fetchLeaderboard();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [username, prompt, duration, difficulty, isSubmitting, fetchLeaderboard, playCompletionSound]
+    [username, prompt, duration, difficulty, fetchLeaderboard, playCompletionSound]
   );
 
   // ── Add completed prompt to history when game ends ────────────────────────
@@ -262,8 +261,7 @@ export default function Home() {
     if (gameState === "finished" && prompt) {
       addToHistory(prompt);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState]);
+  }, [gameState, prompt, addToHistory]);
 
   // ── Handle timer reaching zero ────────────────────────────────────────────
   useEffect(() => {
@@ -271,8 +269,7 @@ export default function Home() {
       if (timerRef.current) clearInterval(timerRef.current);
       submitResults(duration, "timer");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, gameState]);
+  }, [timeLeft, gameState, submitResults, duration]);
 
   // ── Cleanup timer on unmount ──────────────────────────────────────────────
   useEffect(() => {
