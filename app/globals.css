@@ -2,22 +2,135 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ─── Theme: Clean Dark (default) ─────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg: #0d0d14;
+  --surface: #13131f;
+  --surface2: #1c1c2e;
+  --border: #252540;
+  --text: #e2e2f0;
+  --text-muted: #60608a;
+  --accent: #8b5cf6;
+  --accent2: #06b6d4;
+  --accent-gradient: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  --correct: #22c55e;
+  --error: #ef4444;
+  --cursor-bg: rgba(139, 92, 246, 0.25);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── Theme: Clean Light ───────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #f5f5fb;
+  --surface: #ffffff;
+  --surface2: #ededf8;
+  --border: #d8d8ee;
+  --text: #1a1a2e;
+  --text-muted: #7070a0;
+  --accent: #7c3aed;
+  --accent2: #0891b2;
+  --accent-gradient: linear-gradient(135deg, #7c3aed, #0891b2);
+  --correct: #15803d;
+  --error: #dc2626;
+  --cursor-bg: rgba(124, 58, 237, 0.15);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 
+/* ─── Theme: Soft Blue ─────────────────────────────────────────────── */
+[data-theme="blue"] {
+  --bg: #07101e;
+  --surface: #0c1730;
+  --surface2: #101e3f;
+  --border: #1a2d60;
+  --text: #cdd8ff;
+  --text-muted: #4a6090;
+  --accent: #60a5fa;
+  --accent2: #34d399;
+  --accent-gradient: linear-gradient(135deg, #60a5fa, #34d399);
+  --correct: #34d399;
+  --error: #f87171;
+  --cursor-bg: rgba(96, 165, 250, 0.2);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ─── Theme: Soft Green ────────────────────────────────────────────── */
+[data-theme="green"] {
+  --bg: #050f08;
+  --surface: #091a10;
+  --surface2: #0d2218;
+  --border: #143820;
+  --text: #c0ecd0;
+  --text-muted: #3a7050;
+  --accent: #4ade80;
+  --accent2: #2dd4bf;
+  --accent-gradient: linear-gradient(135deg, #4ade80, #2dd4bf);
+  --correct: #86efac;
+  --error: #fca5a5;
+  --cursor-bg: rgba(74, 222, 128, 0.18);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ─── Theme: Warm Sunset ───────────────────────────────────────────── */
+[data-theme="sunset"] {
+  --bg: #130608;
+  --surface: #1f0c10;
+  --surface2: #2c1016;
+  --border: #4a1820;
+  --text: #ffe0d8;
+  --text-muted: #804048;
+  --accent: #fb7185;
+  --accent2: #fbbf24;
+  --accent-gradient: linear-gradient(135deg, #fb7185, #fbbf24);
+  --correct: #86efac;
+  --error: #fca5a5;
+  --cursor-bg: rgba(251, 113, 133, 0.2);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* ─── Base styles ──────────────────────────────────────────────────── */
 body {
-  color: var(--foreground);
-  background: var(--background);
+  background-color: var(--bg);
+  color: var(--text);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ─── Smooth theme transitions ─────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Exclude transitions on elements where they'd look wrong */
+input,
+textarea,
+button {
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+}
+
+/* ─── Celebration keyframe ─────────────────────────────────────────── */
+@keyframes celebrate-pop {
+  0%   { transform: scale(0.9); opacity: 0; }
+  60%  { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.celebrate-pop {
+  animation: celebrate-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ─── Fade-in animation ────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fade-in 0.35s ease forwards;
 }
 
 @layer utilities {
