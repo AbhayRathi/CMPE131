@@ -52,11 +52,14 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
 
+  const [isGuest, setIsGuest] = useState(false);
+
   // --- Refs ---
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
   const typedTextRef = useRef<string>("");
+  const guestUsernameRef = useRef<string>("");
 
   /** Fetch a prompt from the API */
   const fetchPrompt = useCallback(async (diff: Difficulty) => {
@@ -120,7 +123,11 @@ export default function Home() {
   );
 
   /** Start the typing test */
-  const startTest = async () => {
+  const startTest = async (asGuest = false) => {
+    setIsGuest(asGuest);
+    if (asGuest) {
+      guestUsernameRef.current = `guest_${Math.random().toString(36).slice(2, 6)}`;
+    }
     setAuthError(false);
     const newPrompt = await fetchPrompt(difficulty);
     setPrompt(newPrompt);
@@ -151,21 +158,55 @@ export default function Home() {
     timerRef.current = timer;
   };
 
-  /** Redirect to GitHub OAuth to authenticate and submit results */
-  const submitResults = useCallback(() => {
+  /** Submit results — guest path calls API directly, auth path redirects to GitHub */
+  const submitResults = useCallback(async () => {
     if (isSubmitting || redirecting) return;
-    setRedirecting(true);
 
+    if (isGuest) {
+      setGameState("finished");
+      setIsSubmitting(true);
+      try {
+        const res = await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: guestUsernameRef.current,
+            prompt,
+            typedText: typedTextRef.current || " ",
+            durationSec: duration,
+            difficulty,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setResult({
+            wpm: data.wpm,
+            accuracy: data.accuracy,
+            errorCount: data.errorCount,
+            score: data.score,
+            nextDifficulty: data.nextDifficulty,
+          });
+          setDifficulty(data.nextDifficulty);
+          fetchLeaderboard();
+        }
+      } catch {
+        // result stays null → error screen
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    setRedirecting(true);
     const gameData = {
       prompt,
       typedText: typedTextRef.current || " ",
       durationSec: duration,
       difficulty,
     };
-
     const encoded = btoa(JSON.stringify(gameData));
     window.location.href = `/api/auth/github?state=${encodeURIComponent(encoded)}`;
-  }, [prompt, duration, difficulty, isSubmitting, redirecting]);
+  }, [prompt, duration, difficulty, isSubmitting, redirecting, isGuest, fetchLeaderboard]);
 
   /** Handle timer reaching zero */
   useEffect(() => {
@@ -305,10 +346,16 @@ export default function Home() {
 
             {/* Start Button */}
             <button
-              onClick={startTest}
+              onClick={() => startTest(false)}
               className="w-full py-3 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-lg font-bold text-lg hover:from-purple-500 hover:to-cyan-500 transition-all"
             >
               Start Typing Test
+            </button>
+            <button
+              onClick={() => startTest(true)}
+              className="w-full py-2 text-gray-500 rounded-lg font-medium hover:text-gray-300 transition-colors text-sm border border-gray-700 hover:border-gray-600"
+            >
+              Play as Guest
             </button>
           </div>
         )}
