@@ -114,6 +114,7 @@ export default function Home() {
   const startTimeRef     = useRef<number>(0);
   const typedTextRef     = useRef<string>("");
   const submittedRef     = useRef<boolean>(false); // guard against double-submit
+  const testEndedRef     = useRef<boolean>(false); // true once prompt fully typed or timer expires
 
   // Forward-only typing: tracks max characters ever typed so backspace can't erase
   const lockedLengthRef  = useRef<number>(0);
@@ -230,6 +231,7 @@ export default function Home() {
   // ── Live stats (while typing) ─────────────────────────────────────────────
   const updateLiveStats = useCallback(
     (typed: string) => {
+      if (testEndedRef.current) return;
       if (!prompt || typed.length === 0) {
         setWpm(0);
         setAccuracy(100);
@@ -357,6 +359,7 @@ export default function Home() {
   // ── Handle timer reaching zero ────────────────────────────────────────────
   useEffect(() => {
     if (gameState === "playing" && timeLeft === 0) {
+      testEndedRef.current = true;
       if (timerRef.current) clearInterval(timerRef.current);
       submitResults(duration, "timer");
     }
@@ -419,6 +422,7 @@ export default function Home() {
       setTypedText("");
       typedTextRef.current = "";
       submittedRef.current = false;
+      testEndedRef.current = false;
       lockedLengthRef.current = 0;
       setCreditsEarned(null);
       setTimeLeft(duration);
@@ -447,6 +451,7 @@ export default function Home() {
   // ── Handle typing input (forward-only) ───────────────────────────────────
   const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (gameState !== "playing") return;
+    if (testEndedRef.current) return;
     const value = e.target.value;
 
     // Prevent typing beyond the prompt length
@@ -467,6 +472,7 @@ export default function Home() {
 
     // ── Early completion: full prompt typed correctly ──────────────────────
     if (value === prompt) {
+      testEndedRef.current = true;
       if (timerRef.current) clearInterval(timerRef.current);
       const elapsed = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
       submitResults(elapsed, "early");
