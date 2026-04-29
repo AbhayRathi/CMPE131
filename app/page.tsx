@@ -54,6 +54,7 @@ export default function Home() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+  const typedTextRef = useRef<string>("");
 
   /** Fetch a prompt from the API */
   const fetchPrompt = useCallback(async (diff: Difficulty) => {
@@ -125,6 +126,7 @@ export default function Home() {
     const newPrompt = await fetchPrompt(difficulty);
     setPrompt(newPrompt);
     setTypedText("");
+    typedTextRef.current = "";
     setTimeLeft(duration);
     setWpm(0);
     setAccuracy(100);
@@ -163,7 +165,7 @@ export default function Home() {
         body: JSON.stringify({
           username: username || "Guest",
           prompt,
-          typedText: typedText || " ",
+          typedText: typedTextRef.current || " ",
           durationSec: duration,
           difficulty,
         }),
@@ -182,7 +184,7 @@ export default function Home() {
 
     // Fetch updated leaderboard
     fetchLeaderboard();
-  }, [username, prompt, typedText, duration, difficulty, isSubmitting, fetchLeaderboard]);
+  }, [username, prompt, duration, difficulty, isSubmitting, fetchLeaderboard]);
 
   /** Handle timer reaching zero */
   useEffect(() => {
@@ -208,8 +210,14 @@ export default function Home() {
   const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (gameState !== "playing") return;
     const value = e.target.value;
+    typedTextRef.current = value;
     setTypedText(value);
     updateLiveStats(value);
+
+    if (prompt && value.length >= prompt.length) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      submitResults();
+    }
   };
 
   /** Render the prompt with color-coded characters */
