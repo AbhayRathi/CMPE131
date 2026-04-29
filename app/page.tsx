@@ -16,6 +16,7 @@ interface TestResult {
   errorCount: number;
   score: number;
   nextDifficulty: Difficulty;
+  username?: string;
 }
 
 interface LeaderboardEntry {
@@ -32,10 +33,10 @@ interface LeaderboardEntry {
 
 export default function Home() {
   // --- Setup state ---
-  const [username, setUsername] = useState("");
   const [duration, setDuration] = useState<30 | 60>(30);
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [gameState, setGameState] = useState<GameState>("setup");
+  const [authError, setAuthError] = useState(false);
 
   // --- Game state ---
   const [prompt, setPrompt] = useState("");
@@ -49,6 +50,7 @@ export default function Home() {
   const [result, setResult] = useState<TestResult | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   // --- Refs ---
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -119,10 +121,7 @@ export default function Home() {
 
   /** Start the typing test */
   const startTest = async () => {
-    const name = username.trim() || "Guest";
-    setUsername(name);
-
-    // Fetch prompt
+    setAuthError(false);
     const newPrompt = await fetchPrompt(difficulty);
     setPrompt(newPrompt);
     setTypedText("");
@@ -152,39 +151,21 @@ export default function Home() {
     timerRef.current = timer;
   };
 
-  /** Submit results when timer ends */
-  const submitResults = useCallback(async () => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    setGameState("finished");
+  /** Redirect to GitHub OAuth to authenticate and submit results */
+  const submitResults = useCallback(() => {
+    if (isSubmitting || redirecting) return;
+    setRedirecting(true);
 
-    try {
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: username || "Guest",
-          prompt,
-          typedText: typedTextRef.current || " ",
-          durationSec: duration,
-          difficulty,
-        }),
-      });
+    const gameData = {
+      prompt,
+      typedText: typedTextRef.current || " ",
+      durationSec: duration,
+      difficulty,
+    };
 
-      const data = await res.json();
-      if (res.ok) {
-        setResult(data);
-        setDifficulty(data.nextDifficulty);
-      }
-    } catch (err) {
-      console.error("Failed to submit results:", err);
-    } finally {
-      setIsSubmitting(false);
-    }
-
-    // Fetch updated leaderboard
-    fetchLeaderboard();
-  }, [username, prompt, duration, difficulty, isSubmitting, fetchLeaderboard]);
+    const encoded = btoa(JSON.stringify(gameData));
+    window.location.href = `/api/auth/github?state=${encodeURIComponent(encoded)}`;
+  }, [prompt, duration, difficulty, isSubmitting, redirecting]);
 
   /** Handle timer reaching zero */
   useEffect(() => {
@@ -203,6 +184,30 @@ export default function Home() {
 
   /** Load leaderboard on mount */
   useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  /** Read results from URL params after GitHub OAuth redirect */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error")) {
+      setAuthError(true);
+      window.history.replaceState({}, "", "/");
+      return;
+    }
+    const wpm = params.get("wpm");
+    if (!wpm) return;
+    setResult({
+      wpm: Number(wpm),
+      accuracy: Number(params.get("accuracy")),
+      errorCount: Number(params.get("errorCount")),
+      score: Number(params.get("score")),
+      nextDifficulty: (params.get("nextDifficulty") as Difficulty) ?? "easy",
+      username: params.get("username") ?? undefined,
+    });
+    setDifficulty((params.get("nextDifficulty") as Difficulty) ?? "easy");
+    setGameState("finished");
+    window.history.replaceState({}, "", "/");
     fetchLeaderboard();
   }, [fetchLeaderboard]);
 
@@ -252,21 +257,11 @@ export default function Home() {
         {/* Setup Screen */}
         {gameState === "setup" && (
           <div className="space-y-6">
-            {/* Username */}
-            <div>
-              <label htmlFor="username" className="block text-sm text-gray-400 mb-1">
-                Username (leave blank for Guest)
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Guest"
-                maxLength={50}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-              />
-            </div>
+            {authError && (
+              <div className="bg-red-900/40 border border-red-700 rounded-lg px-4 py-3 text-red-300 text-sm text-center">
+                GitHub sign-in failed. Please try again.
+              </div>
+            )}
 
             {/* Mode Selection */}
             <div>
@@ -318,8 +313,15 @@ export default function Home() {
           </div>
         )}
 
+        {/* Redirecting to GitHub */}
+        {redirecting && (
+          <div className="text-center py-12">
+            <div className="text-xl text-gray-400">Redirecting to GitHub to sign in...</div>
+          </div>
+        )}
+
         {/* Playing Screen */}
-        {gameState === "playing" && (
+        {gameState === "playing" && !redirecting && (
           <div className="space-y-6">
             {/* Stats Bar */}
             <div className="grid grid-cols-4 gap-4">
@@ -399,6 +401,12 @@ export default function Home() {
                       {result.nextDifficulty}
                     </span>
                   </div>
+                  {result.username && (
+                    <div className="mt-2 text-gray-500 text-sm">
+                      Submitted as{" "}
+                      <span className="text-white font-medium">@{result.username}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Try Again Button */}
