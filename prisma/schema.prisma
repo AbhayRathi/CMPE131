@@ -6,7 +6,6 @@ generator client {
 }
 
 datasource db {
-  //provider = "postgresql"
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
@@ -18,8 +17,80 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
 
   sessions TestSession[]
+  wallet   Wallet?
 
   @@map("users")
+}
+
+model Wallet {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  balance      Int      @default(0)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User?    @relation(fields: [username], references: [username])
+  transactions CreditTransaction[]
+  holdings     PortfolioHolding[]
+  trades       Trade[]
+  cosmetics    UserCosmetic[]
+  @@map("wallets")
+}
+
+model CreditTransaction {
+  id        String   @id @default(cuid())
+  username  String
+  amount    Int
+  reason    String
+  sessionId String?  @unique @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  wallet    Wallet   @relation(fields: [username], references: [username])
+  @@map("credit_transactions")
+}
+
+model PortfolioHolding {
+  id          String @id @default(cuid())
+  username    String
+  symbol      String
+  quantity    Float  @default(0)
+  avgBuyPrice Float  @default(0) @map("avg_buy_price")
+  wallet      Wallet @relation(fields: [username], references: [username])
+  @@unique([username, symbol])
+  @@map("portfolio_holdings")
+}
+
+model Trade {
+  id        String   @id @default(cuid())
+  username  String
+  symbol    String
+  type      String
+  quantity  Float
+  price     Float
+  total     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  wallet    Wallet   @relation(fields: [username], references: [username])
+  @@map("trades")
+}
+
+model CosmeticItem {
+  id          String @id @default(cuid())
+  name        String @unique
+  category    String
+  description String
+  price       Int
+  data        String
+  userCosmetics UserCosmetic[]
+  @@map("cosmetic_items")
+}
+
+model UserCosmetic {
+  id         String   @id @default(cuid())
+  username   String
+  cosmeticId String   @map("cosmetic_id")
+  equipped   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  wallet     Wallet   @relation(fields: [username], references: [username])
+  cosmetic   CosmeticItem @relation(fields: [cosmeticId], references: [id])
+  @@unique([username, cosmeticId])
+  @@map("user_cosmetics")
 }
 
 /// Stores each typing test session and its results

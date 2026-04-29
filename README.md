@@ -18,6 +18,10 @@ A minimal full-stack web application for gamified typing tests, built with Next.
 - **Prompt System**: Curated prompts per difficulty level with fallback support
 - **Full-Stack API**: RESTful routes for prompts, submissions, and leaderboard
 - **Database Storage**: All test sessions stored in PostgreSQL via Prisma
+- **Wallet & Credits**: Earn virtual credits after each test based on WPM, accuracy, score, and leaderboard rank
+- **Paper Trading**: Simulated asset trading (AETH, BYTE, VELO, NOVA) using earned credits — no real money involved
+- **Cosmetic Shop**: Unlock font themes, UI skins, and avatars with credits
+- **Challenge Mode**: Optional animated prompt card (moving and/or resizing) with a credit bonus multiplier
 
 ## Tech Stack
 
@@ -30,24 +34,43 @@ A minimal full-stack web application for gamified typing tests, built with Next.
 
 ```
 ├── app/
-│   ├── page.tsx                  # Single-page typing test UI
-│   ├── layout.tsx                # Root layout
-│   ├── globals.css               # Global styles
+│   ├── page.tsx                    # Single-page typing test UI
+│   ├── layout.tsx                  # Root layout
+│   ├── globals.css                 # Global styles
+│   ├── components/
+│   │   ├── WalletPanel.tsx         # Wallet balance & transaction history
+│   │   ├── TradingPanel.tsx        # Paper-trading UI
+│   │   └── ShopPanel.tsx           # Cosmetic shop UI
 │   └── api/
-│       ├── prompt/route.ts       # GET /api/prompt
-│       ├── submit/route.ts       # POST /api/submit
-│       └── leaderboard/route.ts  # GET /api/leaderboard
+│       ├── prompt/route.ts         # GET /api/prompt
+│       ├── submit/route.ts         # POST /api/submit
+│       ├── leaderboard/route.ts    # GET /api/leaderboard
+│       ├── wallet/route.ts         # GET /api/wallet
+│       ├── wallet/award/route.ts   # POST /api/wallet/award
+│       ├── portfolio/route.ts      # GET /api/portfolio
+│       ├── trade/route.ts          # POST /api/trade
+│       ├── shop/route.ts           # GET /api/shop
+│       ├── shop/buy/route.ts       # POST /api/shop/buy
+│       └── shop/equip/route.ts     # POST /api/shop/equip
 ├── lib/
-│   ├── prompts.ts                # Prompt library with difficulty levels
-│   ├── scoring.ts                # WPM, accuracy, score calculations
-│   └── db.ts                     # Prisma client singleton
+│   ├── prompts.ts                  # Prompt library with difficulty levels
+│   ├── scoring.ts                  # WPM, accuracy, score calculations
+│   ├── wallet.ts                   # Credit reward formula
+│   ├── trading.ts                  # Mock asset definitions & price simulation
+│   ├── shop.ts                     # Cosmetic catalog
+│   └── db.ts                       # Prisma client singleton
 ├── prisma/
-│   └── schema.prisma             # Database schema (User, TestSession)
+│   ├── schema.prisma               # Database schema
+│   ├── seed.ts                     # Catalog seeder (run with: npx prisma db seed)
+│   └── migrations/                 # SQL migration files
 ├── __tests__/
-│   ├── scoring.test.ts           # Scoring logic tests (41 tests)
-│   └── prompts.test.ts           # Prompt system tests (9 tests)
-├── jest.config.js                # Jest configuration
-├── .env.example                  # Environment variable template
+│   ├── scoring.test.ts
+│   ├── prompts.test.ts
+│   ├── wallet.test.ts
+│   ├── trading.test.ts
+│   └── shop.test.ts
+├── jest.config.js
+├── .env.example
 └── package.json
 ```
 
@@ -56,7 +79,7 @@ A minimal full-stack web application for gamified typing tests, built with Next.
 ### Prerequisites
 
 - Node.js 18+ and npm
-- PostgreSQL database
+- PostgreSQL database (local or hosted, e.g. [Neon](https://neon.tech))
 
 ### 1. Clone & Install
 
@@ -72,20 +95,23 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your PostgreSQL connection string:
+Edit `.env` with your PostgreSQL connection strings:
 
 ```
-DATABASE_URL="postgresql://user:password@localhost:5432/aether_evo?schema=public"
+DATABASE_URL="postgresql://user:password@host:5432/aether_evo?sslmode=require"
+DIRECT_URL="postgresql://user:password@host:5432/aether_evo?sslmode=require"
 ```
+
+For **Neon**, use the pooled connection URL for `DATABASE_URL` and the direct (unpooled) URL for `DIRECT_URL`.
 
 ### 3. Set Up Database
 
 ```bash
-# Generate Prisma client
-npx prisma generate
-
 # Run database migrations
 npx prisma migrate dev --name init
+
+# Seed the cosmetic catalog
+npx prisma db seed
 ```
 
 ### 4. Run Development Server
@@ -150,23 +176,29 @@ Submits typing test results, computes metrics, and stores in the database.
 
 Returns top 10 test sessions sorted by score.
 
-**Response:**
-```json
-{
-  "leaderboard": [
-    {
-      "id": "...",
-      "username": "Player1",
-      "wpm": 65.5,
-      "accuracy": 0.98,
-      "score": 64,
-      "difficulty": "medium",
-      "durationSec": 30,
-      "createdAt": "2026-01-01T00:00:00Z"
-    }
-  ]
-}
-```
+### `POST /api/wallet/award`
+
+Awards credits after a completed test. Called automatically by the UI after `/api/submit`.
+
+### `GET /api/wallet?username=...`
+
+Returns wallet balance and last 10 credit transactions.
+
+### `GET /api/portfolio?username=...`
+
+Returns paper-trading holdings with current mock prices and unrealized P&L.
+
+### `POST /api/trade`
+
+Buy or sell a mock asset using wallet credits.
+
+### `GET /api/shop?username=...`
+
+Returns all cosmetic items with owned/equipped status.
+
+### `POST /api/shop/buy` / `POST /api/shop/equip`
+
+Purchase or equip a cosmetic item.
 
 ## Scoring System
 
@@ -178,14 +210,51 @@ Returns top 10 test sessions sorted by score.
   - Medium accuracy/WPM → Medium
   - High accuracy (>95%) and high WPM (>60) → Hard
 
+## Known Limitations
+
+The wallet, trading, and shop API routes (`/api/wallet/award`, `/api/trade`, `/api/shop/buy`, `/api/shop/equip`)
+currently authenticate users by trusting a `username` field in the request body. There is no session-based
+authentication. This is acceptable for a class demo but should not be used in a public production deployment
+without adding proper session/cookie-based authentication (e.g., [NextAuth.js](https://next-auth.js.org/)).
+
+## Deployment
+
+### Deploy to Vercel with Neon PostgreSQL
+
+1. **Create a free Neon database** at [neon.tech](https://neon.tech).
+   - Copy the **pooled connection string** for `DATABASE_URL`.
+   - Copy the **direct (unpooled) connection string** for `DIRECT_URL`.
+
+2. **Set environment variables in Vercel**:
+   - `DATABASE_URL` — pooled Neon connection string
+   - `DIRECT_URL` — direct Neon connection string
+
+3. **Run the migration locally** against the real database before merging:
+   ```bash
+   # Point your local .env at the real Neon DATABASE_URL / DIRECT_URL
+   npx prisma migrate dev --name add_wallet_trading_shop
+   ```
+   Commit the generated `prisma/migrations/…` SQL file.
+
+4. **Seed the cosmetic catalog** against the real database:
+   ```bash
+   npx prisma db seed
+   ```
+
+5. **Push and deploy**. The Vercel build command (`prisma generate && prisma migrate deploy && next build`) runs migrations automatically on every deploy.
+
 ## Database Schema
 
-| Model | Fields |
-|-------|--------|
+| Model | Key Fields |
+|-------|-----------|
 | **User** | id, username (unique), createdAt |
-| **TestSession** | id, username, prompt, typedText, durationSec, wpm, accuracy, errorCount, score, difficulty, createdAt |
-
-The leaderboard queries directly from `test_sessions` — no separate table needed.
+| **TestSession** | id, username, prompt, typedText, durationSec, wpm, accuracy, errorCount, score, difficulty |
+| **Wallet** | id, username (unique), balance |
+| **CreditTransaction** | id, username, amount, reason, sessionId (unique) |
+| **PortfolioHolding** | id, username, symbol, quantity, avgBuyPrice |
+| **Trade** | id, username, symbol, type, quantity, price, total |
+| **CosmeticItem** | id, name (unique), category, description, price, data |
+| **UserCosmetic** | id, username, cosmeticId, equipped |
 
 ## Contributing
 
@@ -198,3 +267,4 @@ The leaderboard queries directly from `test_sessions` — no separate table need
 ## License
 
 This project is licensed under the **MIT License**.
+
